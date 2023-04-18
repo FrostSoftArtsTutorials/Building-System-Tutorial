@@ -1,0 +1,43 @@
+using System.Collections;
+using System.Collections.Generic;
+using UnityEngine;
+
+public class CheckPlacement : MonoBehaviour
+{
+
+    [SerializeField] private BuildingManager BM;
+
+    // Start is called before the first frame update
+    void Start()
+    {
+        BM = GameObject.Find("Building Manager").GetComponent<BuildingManager>();
+    }
+
+    // Update is called once per frame
+    void Update()
+    {
+
+    }
+
+    private void OnTriggerEnter(Collider other)
+    {
+        //If the object enters the trigger of another object and it's tag is Object
+        //and the stacking option is not on then we can't place
+        //We are checking the stacking option too because, if we didn't then stacking wouldn't
+        //because the stacking the objects always enter it's other's trigger
+        if (other.gameObject.CompareTag("Object") && BM.canStack == false)
+        {
+            BM.canPlace = false;
+        }
+    }
+    private void OnTriggerExit(Collider other)
+    {
+        //Checking if the object exits the trigger of another object that it's tag was Object
+        //We are not checking for the stacking option this time because we don't need to
+        if (other.gameObject.CompareTag("Object"))
+        {
+            BM.canPlace = true;
+        }
+
+    }
+}
