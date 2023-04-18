@@ -1,0 +1,79 @@
+using System.Collections;
+using System.Collections.Generic;
+using UnityEngine;
+
+public class SelectionManager : MonoBehaviour
+{
+
+    [SerializeField] private GameObject selectedObject;
+    [SerializeField] private float selectionRange;
+    [SerializeField] private BuildingManager BuildingManager;
+
+    // Start is called before the first frame update
+    void Start()
+    {
+        
+    }
+
+    // Update is called once per frame
+    void Update()
+    {
+        //Checking if we press the left mouse button
+        if (Input.GetMouseButtonDown(0))
+        {
+            //Shotting a raycast from our mouse's position
+            Ray ray = Camera.main.ScreenPointToRay(Input.mousePosition);
+            RaycastHit hit;
+            //Checking if we hit something within the selection range
+            if (Physics.Raycast(ray, out hit, selectionRange))
+            {
+            //If we did then we are checking the tag of the object that we hit
+            //If it has the tag that we want then we are the obj parameter to be the game object that we hit
+                if (hit.collider.CompareTag("Object"))
+                {
+                    Selection(hit.collider.gameObject);
+                }
+            }
+        }
+        //If we press the right mouse button then we call the deselect method
+        if (Input.GetMouseButtonDown(1))
+            Deselect();
+        //Here we check if the player presses the delete button and the selected object is not null
+        //so it has something assigned to it
+        //Then we call the Delete method
+        if (Input.GetKeyDown(KeyCode.Delete)&&selectedObject!=null)
+        {
+            Delete();
+        }
+    }
+    void Selection(GameObject obj)
+    {
+        //Passing a parameter of type game object
+        //Checking if the selected object variable has something assigned to it
+        //If it does and then the player selects another gameobject then we are deselecting the current object
+        //and then assigning the new object that we clicked to the selected object variable
+        if (selectedObject != null)
+        {
+            Deselect();
+        }
+        //If the obj that is already set is equal to the object that we are hitting
+        //So if we are clicking the same object then we return
+        if (obj == selectedObject)return;
+        //Setting our selected Object to the obj that we set in the parameters here
+        selectedObject = obj;
+    }
+    void Deselect()
+    {
+        //Setting the selectedObject to null
+        selectedObject = null;
+    }
+    void Delete()
+    {
+        //Making an object to delete variable and setting that variable to our selectedObject
+        //Then we call the deselect method
+        //And finally we destroy the object
+        GameObject objectToDelete = selectedObject;
+        Deselect();
+        Destroy(objectToDelete);
+    }
+}
