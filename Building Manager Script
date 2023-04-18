@@ -1,0 +1,271 @@
+using System.Collections;
+using System.Collections.Generic;
+using UnityEngine;
+using TMPro;
+using UnityEngine.UI;
+
+public class BuildingManager : MonoBehaviour
+{
+
+    [Header("Bools")]
+    public bool canPlace;
+    public bool canStack;
+    [SerializeField] private bool gridOn;
+    [SerializeField] private bool canOpenBuildingPanel = true;
+    [SerializeField] private bool hasDisabledPlacementChecking;
+
+    [Header("Floats")]
+    [SerializeField] private float rotateAmount;
+    [SerializeField] private float gridSize;
+    [SerializeField] private float range;
+
+    [Header("Game Objects")]
+    [SerializeField] private GameObject[] objectToPlace;
+    [SerializeField] private GameObject hitbox;
+    public GameObject nextObj;
+
+    [Header("Layer Masks")]
+    [SerializeField] private LayerMask placeableGround;
+    [SerializeField] private LayerMask stackMask;
+    
+    [Header("Vectors")]
+    [SerializeField] private Vector3 pos;
+
+    [Header("Materials")]
+    [SerializeField] private Material[] placementCheckingMaterials;
+
+    [Header("UI")]
+    [SerializeField] private TMP_InputField newRotationAmountTxt;
+    [SerializeField] private TMP_InputField newSnapAmountTxt;
+    [SerializeField] private Canvas buildingPanel;
+
+    [Header("Script Refrences")]
+    [SerializeField] private CheckPlacement checkPlacement;
+
+
+    //Keep in mind this has some bugs
+    //I didn't have so much time to make this
+
+    // Start is called before the first frame update
+    void Start()
+    {
+
+    }
+
+    // Update is called once per frame
+    void Update()
+    {
+        //Checking if the player can stack objects together
+        if (canStack)
+        {
+            canPlace = true;
+        }
+
+        //Option to disable placement checking
+        //So the player can place objects inside each other or next to each other
+        if (hasDisabledPlacementChecking)
+        {
+            canPlace = true;
+        }
+
+        //Turning the values of the rotation and grid from the input fields into floats
+        //By doing that the player can change the grid and rotation on his own
+        rotateAmount = float.Parse(newRotationAmountTxt.text);
+        gridSize = float.Parse(newSnapAmountTxt.text);
+        //Disabling the ability to set the grid value to 0(If we didn't do this it would cause an error)
+
+        if (gridSize < 0.1f)
+        {
+            newSnapAmountTxt.text = "0.1";
+            gridSize = .1f;
+        }
+
+        //Keybinds for different things
+        if (Input.GetKeyDown(KeyCode.O))
+        {
+            canStack = true;
+        }
+        if (Input.GetKeyDown(KeyCode.L))
+        {
+            canStack = false;
+        }
+
+        if (Input.GetKeyDown(KeyCode.M))
+        {
+            hasDisabledPlacementChecking = true;
+        }
+        if (Input.GetKeyDown(KeyCode.N))
+        {
+            hasDisabledPlacementChecking = false;
+        }
+
+        if (Input.GetKeyDown(KeyCode.G))
+        {
+            gridOn = true;
+        }
+        if (Input.GetKeyDown(KeyCode.H))
+        {
+            gridOn = false;
+        }
+
+        if (Input.GetKeyDown(KeyCode.X))
+        {
+            cancelPlacement();
+        }
+        if (Input.GetKeyDown(KeyCode.B) && canOpenBuildingPanel)
+        {
+            buildingPanel.enabled = true;
+        }
+        if (Input.GetKeyDown(KeyCode.C) && canOpenBuildingPanel)
+        {
+            buildingPanel.enabled = false;
+        }
+
+
+        //Shooting a raycast and checking if it hits something within the range
+        //and it has the layermask that is set and if we press the left mouse button and if we can place
+        Ray ray = Camera.main.ScreenPointToRay(Input.mousePosition);
+        RaycastHit hit;
+        if (Physics.Raycast(ray, out hit, range, placeableGround) && Input.GetKeyDown(KeyCode.Mouse0) && canPlace)
+        {
+            place();
+        }
+
+        //If the player is building something
+        //Then he can rotate and reset the object's position
+        if (nextObj != null)
+        {
+            //Changing the nextObj's(and it's childs) layer to prevent a bug
+            foreach (Transform child in nextObj.GetComponentsInChildren<Transform>())
+            {
+                child.gameObject.layer = LayerMask.NameToLayer("Default");
+            }
+            if (Input.GetKeyDown(KeyCode.R))
+            {
+                rotateObject();
+            }
+
+            if (Input.GetKeyDown(KeyCode.P))
+            {
+                nextObj.transform.eulerAngles = new Vector3(0, 0, 0);
+            }
+
+            //Checking if the grid option is on
+            //If it is then we are setting it's position to a new vector3(pos) that we set in the gridSnapping method
+            if (gridOn)
+            {
+            //The reason we are not setting the Y axis to the gridSnapping value
+            //is because the object would sink through the floor
+                nextObj.transform.position = new Vector3(gridSnapping(pos.x), pos.y, gridSnapping(pos.z));
+            }
+            //If it's not on then we are just leaving the position as it is
+            else
+            {
+                nextObj.transform.position = pos;
+            }
+        }
+        materials();
+    }
+
+    void place()
+    {
+        //Here we are setting the layer of the object that we placed back to obj so stacking works
+        //Previously we set the layer to Default that way we are preventing a bug
+        foreach (Transform child in nextObj.GetComponentsInChildren<Transform>())
+        {
+            child.gameObject.layer = LayerMask.NameToLayer("obj");
+        }
+        //Setting the hitbox to not active
+        hitbox.SetActive(false);
+        //Setting the hitbox to null
+        hitbox = null;
+        //Enabling the player to open the building panel again
+        canOpenBuildingPanel = true;
+        //Setting nextObj to null that way the player stops placing the object
+        nextObj = null;
+    }
+
+    void cancelPlacement()
+    {
+        //Enabling the player to open the building panel
+        canOpenBuildingPanel = true;
+        //Destroying the nextObj so it doesn't get placed
+        //If we set it to nextObj = null then the object would get placed
+        //That's why we are destroying it
+        Destroy(nextObj);
+    }
+    void materials()
+    {
+        //Checking if we can place
+        if (canPlace)
+        {
+            //If we can then we are assigning the hitbox
+            hitbox = nextObj.transform.GetChild(1).gameObject;
+            //Then we are setting the hitbox to true
+            hitbox.SetActive(true);
+            //And finally we get the mesh renderer of the hitbox and setting it's material to our can place material
+            hitbox.GetComponent<MeshRenderer>().material = placementCheckingMaterials[0];
+
+        }
+        //If we can't place then we are doing the same thing
+        else
+        {
+            hitbox = nextObj.transform.GetChild(1).gameObject;
+            hitbox.SetActive(true);
+            //But instead we are setting the hitbox's material to our can't place material
+            hitbox.GetComponent<MeshRenderer>().material = placementCheckingMaterials[1];
+        }
+    }
+
+    void rotateObject()
+    {
+        //Rotating the object to it's Y axis and by the rotation amount
+        nextObj.transform.Rotate(Vector3.up, rotateAmount);
+    }
+
+    private void FixedUpdate()
+    {
+        //Shooting a raycast to find the position of the mouse
+        //and then setting the vector3 pos that we made earler to the mouse's position
+        Ray ray = Camera.main.ScreenPointToRay(Input.mousePosition);
+        RaycastHit hit;
+
+        if (Physics.Raycast(ray, out hit, range, placeableGround))
+        {
+            pos = hit.point;
+        }
+        if (Physics.Raycast(ray, out hit, range, stackMask) && canStack)
+        {
+            pos = hit.point;
+        }
+    }
+
+    public void selectObj(int objectNumber)
+    {
+        //Selecting the object
+        //Disabling the ability to open the panel
+        //Disabling the panel
+        //And then instantiating our object
+        canOpenBuildingPanel = false;
+        buildingPanel.enabled = false;
+        nextObj = Instantiate(objectToPlace[objectNumber], pos, transform.rotation);
+    }
+    float gridSnapping(float pos)
+    {
+        //First we are getting the remainding value of the position and the grid size
+        //We are deviding pos and grid size and getting the remaining value of that
+        //xDiff holds that value 
+        //Then we are rounding the value down by subtracting the difference
+        float xDiff = pos % gridSize;
+        pos -= xDiff;
+        //Although we sometimes want to round it up
+        //So that's what we do here
+        //If the difference is more than gridSize/2 then we are adding it up
+        if (xDiff > (gridSize / 2))
+        {
+            pos += gridSize;
+        }
+        //Finally we just return the pos
+        return pos;
+    }
+}
